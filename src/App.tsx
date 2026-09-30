@@ -1,25 +1,22 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { 
-  Brain, 
-  Activity, 
   Play, 
-  RotateCcw, 
   Sliders, 
   BookOpen, 
   Trophy, 
   HelpCircle, 
-  Volume2, 
-  VolumeX, 
-  Sparkles,
-  Flame,
-  Target,
-  BarChart3,
-  Stethoscope,
-  Crown
+  BarChart3, 
+  Stethoscope, 
+  Maximize, 
+  Minimize, 
+  Pause, 
+  Clock, 
+  Zap, 
+  Flame, 
+  Target 
 } from 'lucide-react';
 
 import { MedicalWord, Trial, GameSettings, UserProgress, SessionStats } from './types/game';
-import { MEDICAL_DICTIONARY } from './data/medicalTerms';
 import { 
   loadSettings, 
   saveSettings, 
@@ -42,25 +39,28 @@ import { GlossaryModal } from './components/GlossaryModal';
 import { StatsView } from './components/StatsView';
 import { LeaderboardGoalsModal } from './components/LeaderboardGoalsModal';
 import { SettingsModal } from './components/SettingsModal';
+import { PauseModal } from './components/PauseModal';
+
+type AppScreen = 'home' | 'playing' | 'stats';
 
 export default function App() {
   // Persistence State
   const [settings, setSettings] = useState<GameSettings>(DEFAULT_SETTINGS);
   const [progress, setProgress] = useState<UserProgress>(loadProgress);
 
-  // Active Navigation Tab
-  const [activeTab, setActiveTab] = useState<'train' | 'stats'>('train');
+  // App & Game State
+  const [currentScreen, setCurrentScreen] = useState<AppScreen>('home');
+  const [isPaused, setIsPaused] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
-  // Modals State
+  // Modals
   const [showTutorial, setShowTutorial] = useState(false);
   const [showGlossary, setShowGlossary] = useState(false);
   const [showGoalsLeaderboard, setShowGoalsLeaderboard] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [lastSessionStats, setLastSessionStats] = useState<SessionStats | null>(null);
 
-  // Game Engine State
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [isPaused, setIsPaused] = useState(false);
+  // Gameplay Engine
   const [currentTrialIdx, setCurrentTrialIdx] = useState(0);
   const [sequence, setSequence] = useState<Trial[]>([]);
 
@@ -70,21 +70,22 @@ export default function App() {
   const [isStimulusActive, setIsStimulusActive] = useState(false);
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
 
-  // Player Responses for Current Trial
+  // Current Trial Player Responses
   const [visualPressed, setVisualPressed] = useState(false);
   const [audioPressed, setAudioPressed] = useState(false);
   const [immediateVisualResult, setImmediateVisualResult] = useState<'hit' | 'miss' | 'false_alarm' | null>(null);
   const [immediateAudioResult, setImmediateAudioResult] = useState<'hit' | 'miss' | 'false_alarm' | null>(null);
 
-  // Trial Timer & Progress
+  // Timer & Progress
   const [trialProgressPercent, setTrialProgressPercent] = useState(100);
 
-  // Refs for timer loops & state access inside intervals
+  // Refs for synchronous loop control
   const trialTimerRef = useRef<NodeJS.Timeout | null>(null);
   const stimulusTimerRef = useRef<NodeJS.Timeout | null>(null);
   const progressIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const trialStartTimeRef = useRef<number>(0);
-  const isPlayingRef = useRef(isPlaying);
+
+  const currentScreenRef = useRef(currentScreen);
   const isPausedRef = useRef(isPaused);
   const currentTrialIdxRef = useRef(currentTrialIdx);
   const sequenceRef = useRef(sequence);
@@ -92,8 +93,7 @@ export default function App() {
   const audioPressedRef = useRef(audioPressed);
   const settingsRef = useRef(settings);
 
-  // Keep refs synchronized
-  useEffect(() => { isPlayingRef.current = isPlaying; }, [isPlaying]);
+  useEffect(() => { currentScreenRef.current = currentScreen; }, [currentScreen]);
   useEffect(() => { isPausedRef.current = isPaused; }, [isPaused]);
   useEffect(() => { currentTrialIdxRef.current = currentTrialIdx; }, [currentTrialIdx]);
   useEffect(() => { sequenceRef.current = sequence; }, [sequence]);
@@ -101,19 +101,31 @@ export default function App() {
   useEffect(() => { audioPressedRef.current = audioPressed; }, [audioPressed]);
   useEffect(() => { settingsRef.current = settings; }, [settings]);
 
-  // Initial Load & Voice setup
+  // Initial load
   useEffect(() => {
     const loadedS = loadSettings();
     setSettings(loadedS);
     const loadedP = loadProgress();
     setProgress(loadedP);
 
-    initVoicesListener(() => {
-      // voices loaded in browser
-    });
+    initVoicesListener(() => {});
+
+    const onFsChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener('fullscreenchange', onFsChange);
+    return () => document.removeEventListener('fullscreenchange', onFsChange);
   }, []);
 
-  // Clear all running timers helper
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(() => {});
+    } else {
+      document.exitFullscreen().catch(() => {});
+    }
+  };
+
+  // Safe timer clearing helper
   const clearGameTimers = useCallback(() => {
     if (trialTimerRef.current) clearTimeout(trialTimerRef.current);
     if (stimulusTimerRef.current) clearTimeout(stimulusTimerRef.current);
@@ -121,17 +133,32 @@ export default function App() {
     trialTimerRef.current = null;
     stimulusTimerRef.current = null;
     progressIntervalRef.current = null;
+
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      try {
+        window.speechSynthesis.cancel();
+      } catch {}
+    }
   }, []);
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => clearGameTimers();
   }, [clearGameTimers]);
 
-  // Finish Round Handler
+  // Pause game automatically if any modal is opened
+  const pauseGameIfRunning = useCallback(() => {
+    if (currentScreenRef.current === 'playing') {
+      setIsPaused(true);
+      clearGameTimers();
+      setIsStimulusActive(false);
+      setIsPlayingAudio(false);
+    }
+  }, [clearGameTimers]);
+
+  // Finish Round
   const finishRound = useCallback((completedTrials: Trial[]) => {
     clearGameTimers();
-    setIsPlaying(false);
+    setCurrentScreen('home');
     setIsPaused(false);
     setIsStimulusActive(false);
     setIsPlayingAudio(false);
@@ -143,7 +170,6 @@ export default function App() {
 
     if (stats.levelChange === 'promoted') {
       playSoundEffect('levelup', s.soundEffectsVolume);
-      // Auto adapt level in settings
       const newSettings = { ...s, nLevel: stats.nextNLevel };
       setSettings(newSettings);
       saveSettings(newSettings);
@@ -161,9 +187,11 @@ export default function App() {
     setLastSessionStats(stats);
   }, [clearGameTimers, progress]);
 
-  // Run a single trial step
+  // Execute trial
   const executeTrial = useCallback((idx: number) => {
-    if (!isPlayingRef.current) return;
+    if (currentScreenRef.current !== 'playing' || isPausedRef.current) {
+      return;
+    }
 
     const currentSeq = sequenceRef.current;
     if (idx >= currentSeq.length) {
@@ -192,15 +220,14 @@ export default function App() {
       setIsPlayingAudio(false);
     });
 
-    // Subtle clinical telemetry pulse
-    playSoundEffect('pulse', s.soundEffectsVolume * 0.35);
+    playSoundEffect('pulse', s.soundEffectsVolume * 0.25);
 
-    // Timer: hide active square after stimulusDurationMs (mental retention interval)
+    // Turn off active visual square after stimulusDurationMs
     stimulusTimerRef.current = setTimeout(() => {
       setIsStimulusActive(false);
     }, s.stimulusDurationMs);
 
-    // Progress Bar countdown
+    // Trial countdown progress bar
     trialStartTimeRef.current = Date.now();
     const duration = s.trialDurationMs;
 
@@ -208,13 +235,12 @@ export default function App() {
       const elapsed = Date.now() - trialStartTimeRef.current;
       const remainingPercent = Math.max(0, 100 - (elapsed / duration) * 100);
       setTrialProgressPercent(remainingPercent);
-    }, 40);
+    }, 35);
 
-    // Trial End Timer: evaluate responses and step forward
+    // Trial timer end
     trialTimerRef.current = setTimeout(() => {
       if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
 
-      // Record final responses for this trial
       const vPressed = visualPressedRef.current;
       const aPressed = audioPressedRef.current;
 
@@ -225,13 +251,12 @@ export default function App() {
       trial.visualResult = evalResults.visualResult;
       trial.audioResult = evalResults.audioResult;
 
-      // Advance to next trial
       executeTrial(idx + 1);
     }, duration);
   }, [finishRound]);
 
-  // Start / Restart Round
-  const startRound = useCallback((overrideLevel?: number) => {
+  // Start Play Session
+  const startPlaySession = useCallback((overrideLevel?: number) => {
     clearGameTimers();
     setLastSessionStats(null);
 
@@ -241,36 +266,43 @@ export default function App() {
     setSequence(newSeq);
     sequenceRef.current = newSeq;
     setCurrentTrialIdx(0);
-    setIsPlaying(true);
+    setCurrentScreen('playing');
     setIsPaused(false);
-    setActiveTab('train');
 
-    // Small initial countdown breather so audio context is active
     setTimeout(() => {
       executeTrial(0);
-    }, 400);
+    }, 300);
   }, [clearGameTimers, executeTrial, settings.nLevel, settings.trialsPerRound]);
 
-  // Toggle Pause
-  const togglePause = useCallback(() => {
-    if (!isPlaying) return;
+  // Pause action (opens PauseModal)
+  const handlePauseGame = useCallback(() => {
+    if (currentScreen !== 'playing') return;
+    setIsPaused(true);
+    clearGameTimers();
+    setIsStimulusActive(false);
+    setIsPlayingAudio(false);
+  }, [clearGameTimers, currentScreen]);
 
-    if (isPaused) {
-      // Resume
-      setIsPaused(false);
-      // Restart current trial
-      executeTrial(currentTrialIdxRef.current);
-    } else {
-      // Pause
-      setIsPaused(true);
-      clearGameTimers();
-      setIsStimulusActive(false);
-    }
-  }, [clearGameTimers, executeTrial, isPaused, isPlaying]);
+  // Resume action
+  const handleResumeGame = useCallback(() => {
+    setIsPaused(false);
+    executeTrial(currentTrialIdxRef.current);
+  }, [executeTrial]);
 
-  // Handle Visual Match Press (Key 'A' or on-screen button)
+  // New Game action (Exit to Opening Screen)
+  const handleNewGame = useCallback(() => {
+    clearGameTimers();
+    setIsPaused(false);
+    setIsStimulusActive(false);
+    setIsPlayingAudio(false);
+    setActivePosition(null);
+    setCurrentSound(null);
+    setCurrentScreen('home');
+  }, [clearGameTimers]);
+
+  // Handle Visual Match Press
   const handleVisualPress = useCallback(() => {
-    if (!isPlaying || isPaused || visualPressed) return;
+    if (currentScreen !== 'playing' || isPaused || visualPressed) return;
 
     setVisualPressed(true);
     playSoundEffect('click', settings.soundEffectsVolume * 0.4);
@@ -287,11 +319,11 @@ export default function App() {
         }
       }
     }
-  }, [isPaused, isPlaying, settings.immediateFeedback, settings.soundEffectsVolume, visualPressed]);
+  }, [currentScreen, isPaused, settings.immediateFeedback, settings.soundEffectsVolume, visualPressed]);
 
-  // Handle Audio Match Press (Key 'L' or on-screen button)
+  // Handle Audio Match Press
   const handleAudioPress = useCallback(() => {
-    if (!isPlaying || isPaused || audioPressed) return;
+    if (currentScreen !== 'playing' || isPaused || audioPressed) return;
 
     setAudioPressed(true);
     playSoundEffect('click', settings.soundEffectsVolume * 0.4);
@@ -308,12 +340,11 @@ export default function App() {
         }
       }
     }
-  }, [audioPressed, isPaused, isPlaying, settings.immediateFeedback, settings.soundEffectsVolume]);
+  }, [audioPressed, currentScreen, isPaused, settings.immediateFeedback, settings.soundEffectsVolume]);
 
   // Global Keyboard Shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Ignore if user is typing in an input
       if (['INPUT', 'SELECT', 'TEXTAREA'].includes((e.target as HTMLElement)?.tagName)) {
         return;
       }
@@ -326,38 +357,57 @@ export default function App() {
         handleAudioPress();
       } else if (e.code === 'Space') {
         e.preventDefault();
-        if (isPlaying) {
-          togglePause();
-        } else {
-          startRound();
+        if (currentScreen === 'playing') {
+          if (isPaused) {
+            handleResumeGame();
+          } else {
+            handlePauseGame();
+          }
+        } else if (currentScreen === 'home') {
+          startPlaySession();
         }
       } else if (e.code === 'Enter') {
         if (lastSessionStats) {
-          // Advance to next round from summary modal
-          startRound(lastSessionStats.nextNLevel);
-        } else if (!isPlaying) {
-          startRound();
+          startPlaySession(lastSessionStats.nextNLevel);
+        } else if (currentScreen === 'home') {
+          startPlaySession();
         }
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleAudioPress, handleVisualPress, isPlaying, lastSessionStats, startRound, togglePause]);
+  }, [currentScreen, handleAudioPress, handlePauseGame, handleResumeGame, handleVisualPress, isPaused, lastSessionStats, startPlaySession]);
 
-  // Save Settings handler
+  // Settings Updaters
+  const updateNLevel = (lvl: number) => {
+    const updated = { ...settings, nLevel: lvl };
+    setSettings(updated);
+    saveSettings(updated);
+  };
+
+  const updateSpeed = (ms: number) => {
+    const updated = { ...settings, trialDurationMs: ms };
+    setSettings(updated);
+    saveSettings(updated);
+  };
+
+  const updateTrials = (trials: number) => {
+    const updated = { ...settings, trialsPerRound: trials };
+    setSettings(updated);
+    saveSettings(updated);
+  };
+
   const handleSaveSettings = (newSettings: GameSettings) => {
     setSettings(newSettings);
     saveSettings(newSettings);
   };
 
-  // Reset to Defaults handler
   const handleResetDefaults = () => {
     setSettings(DEFAULT_SETTINGS);
     saveSettings(DEFAULT_SETTINGS);
   };
 
-  // Reset History handler
   const handleResetHistory = () => {
     const updated: UserProgress = {
       ...progress,
@@ -372,14 +422,12 @@ export default function App() {
     }
   };
 
-  // Update Daily Goal
   const handleUpdateDailyGoal = (goal: number) => {
     const newSettings = { ...settings, dailyGoalSessions: goal };
     setSettings(newSettings);
     saveSettings(newSettings);
   };
 
-  // Toggle Pro
   const handleTogglePro = () => {
     const updated = { ...progress, proUnlocked: !progress.proUnlocked };
     setProgress(updated);
@@ -388,260 +436,342 @@ export default function App() {
     }
   };
 
+  // Estimated total session time in seconds
+  const estimatedSeconds = Math.round((settings.trialsPerRound * settings.trialDurationMs) / 1000);
+
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-between selection:bg-teal-500 selection:text-white">
+    <div className="h-[100dvh] max-h-[100dvh] w-full overflow-hidden flex flex-col justify-between bg-white text-black select-none">
       
-      {/* Clinical Telemetry Top Header */}
-      <header className="w-full border-b border-slate-800/80 bg-slate-950/90 backdrop-blur-md sticky top-0 z-40">
-        <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
-          
-          {/* Brand & Mode */}
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-teal-400 to-cyan-600 flex items-center justify-center shadow-lg shadow-teal-500/20 text-slate-950">
-              <Activity className="w-5 h-5 font-bold" />
+      {/* ================= HEADER ================= */}
+      {currentScreen !== 'playing' ? (
+        /* HOME / OPENING SCREEN HEADER: All Top Bar Options Displayed */
+        <header className="w-full shrink-0 border-b-2 border-black bg-white px-3 py-2 sm:px-4 sm:py-2.5">
+          <div className="max-w-md mx-auto flex items-center justify-between">
+            {/* Title / Brand */}
+            <div className="flex items-center gap-2">
+              <h1 className="text-base sm:text-lg font-black tracking-tight text-black">
+                MedNBack
+              </h1>
+              <span className="px-2 py-0.5 rounded-full bg-orange-500 text-white font-mono font-black text-xs shadow-sm">
+                N={settings.nLevel}
+              </span>
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-base font-extrabold tracking-tight text-white">
-                  MedNBack
-                </h1>
-                <span className="text-[11px] font-mono text-teal-400 font-semibold bg-teal-950/70 border border-teal-500/30 px-2 py-0.5 rounded-md">
-                  N={settings.nLevel}
-                </span>
-                {progress.proUnlocked && (
-                  <span className="text-[10px] font-mono text-amber-300 font-bold bg-amber-950/60 border border-amber-400/40 px-1.5 py-0.5 rounded flex items-center gap-1">
-                    <Crown className="w-3 h-3 text-amber-400" />
-                    PRO
-                  </span>
-                )}
-              </div>
-              <p className="text-[11px] text-slate-400 hidden sm:block">
-                Clinical Dual N-Back · TB, CML, AIDS, MI, Angina, Typhoid, Dengue, Mumps, Rabies
+
+            {/* Top Bar Complete Navigation Options */}
+            <div className="flex items-center gap-1 sm:gap-1.5">
+              <button
+                type="button"
+                onClick={() => {
+                  pauseGameIfRunning();
+                  setCurrentScreen(currentScreen === 'stats' ? 'home' : 'stats');
+                }}
+                className={`p-2 rounded-xl border-2 transition-all cursor-pointer ${
+                  currentScreen === 'stats'
+                    ? 'bg-orange-500 text-white border-black shadow-sm'
+                    : 'bg-white hover:bg-zinc-100 border-black text-black'
+                }`}
+                title="Stats"
+              >
+                <BarChart3 className="w-4 h-4" />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  pauseGameIfRunning();
+                  setShowGlossary(true);
+                }}
+                className="p-2 rounded-xl bg-white hover:bg-zinc-100 border-2 border-black text-black transition-colors cursor-pointer"
+                title="Glossary (9 Words)"
+              >
+                <Stethoscope className="w-4 h-4" />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  pauseGameIfRunning();
+                  setShowGoalsLeaderboard(true);
+                }}
+                className="p-2 rounded-xl bg-white hover:bg-zinc-100 border-2 border-black text-black transition-colors cursor-pointer"
+                title="Goals & Leaderboard"
+              >
+                <Trophy className="w-4 h-4" />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  pauseGameIfRunning();
+                  setShowSettings(true);
+                }}
+                className="p-2 rounded-xl bg-white hover:bg-zinc-100 border-2 border-black text-black transition-colors cursor-pointer"
+                title="Settings"
+              >
+                <Sliders className="w-4 h-4" />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  pauseGameIfRunning();
+                  setShowTutorial(true);
+                }}
+                className="p-2 rounded-xl bg-white hover:bg-zinc-100 border-2 border-black text-black transition-colors cursor-pointer"
+                title="Help & Rules"
+              >
+                <HelpCircle className="w-4 h-4" />
+              </button>
+
+              <button
+                type="button"
+                onClick={toggleFullscreen}
+                className="p-2 rounded-xl bg-zinc-100 hover:bg-zinc-200 border-2 border-black text-black transition-colors cursor-pointer"
+                title={isFullscreen ? 'Exit Fullscreen' : 'Full Screen'}
+              >
+                {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
+              </button>
+            </div>
+          </div>
+        </header>
+      ) : (
+        /* GAMEPLAY TOP BAR: Clean, Minimal, NO retry or clutter. ONLY Pause button! */
+        <header className="w-full shrink-0 border-b-2 border-black bg-white px-3 py-1.5 sm:px-4">
+          <div className="max-w-md mx-auto flex items-center justify-between font-mono font-black text-xs">
+            <span className="text-zinc-900">
+              TRIAL {currentTrialIdx + 1} / {sequence.length}
+            </span>
+
+            <span className="text-orange-600 font-sans tracking-wide">
+              MATCH N={settings.nLevel}
+            </span>
+
+            {/* ONLY ONE PAUSE BUTTON PRESENT WHILE PLAYING */}
+            <button
+              type="button"
+              onClick={handlePauseGame}
+              className="flex items-center gap-1 px-3 py-1 rounded-xl bg-white hover:bg-zinc-100 border-2 border-black text-black font-sans font-black text-xs shadow-[0_2px_0_#000000] active:translate-y-0.5 active:shadow-none transition-all cursor-pointer"
+              title="Pause Game"
+            >
+              <Pause className="w-3.5 h-3.5 fill-black" />
+              <span>Pause</span>
+            </button>
+          </div>
+        </header>
+      )}
+
+      {/* ================= MAIN CONTAINER ================= */}
+      <main className="flex-1 min-h-0 w-full flex flex-col justify-between overflow-hidden">
+        
+        {currentScreen === 'home' && (
+          /* ================= OPENING SCREEN ================= */
+          <div className="h-full w-full max-w-md mx-auto px-4 py-2 flex flex-col justify-between overflow-y-auto">
+            
+            {/* Title / Intro */}
+            <div className="text-center pt-1">
+              <h2 className="text-xl sm:text-2xl font-black text-black tracking-tight">
+                Medical Dual N-Back
+              </h2>
+              <p className="text-xs text-zinc-600 mt-0.5">
+                Configure your workout and sharpen working memory
               </p>
             </div>
-          </div>
 
-          {/* Navigation Controls & Metric Badges */}
-          <div className="flex items-center gap-2">
-            
-            {/* View Switcher: Train vs Stats */}
-            <div className="flex items-center bg-slate-900 border border-slate-800 rounded-xl p-1">
-              <button
-                type="button"
-                onClick={() => setActiveTab('train')}
-                className={`py-1 px-3 rounded-lg text-xs font-semibold transition-all ${
-                  activeTab === 'train'
-                    ? 'bg-teal-500 text-slate-950 shadow-sm font-bold'
-                    : 'text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                Train
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTab('stats')}
-                className={`py-1 px-3 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
-                  activeTab === 'stats'
-                    ? 'bg-teal-500 text-slate-950 shadow-sm font-bold'
-                    : 'text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                <BarChart3 className="w-3.5 h-3.5" />
-                <span>Stats</span>
-              </button>
-            </div>
-
-            {/* Quick Actions (Glossary, Tutorial, Goals, Settings) */}
-            <button
-              type="button"
-              onClick={() => setShowGlossary(true)}
-              className="p-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-cyan-300 hover:border-slate-700 transition-colors"
-              title="Medical Glossary (9 Conditions)"
-            >
-              <Stethoscope className="w-4 h-4" />
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setShowGoalsLeaderboard(true)}
-              className="p-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-amber-300 hover:border-slate-700 transition-colors relative"
-              title="Goals & Leaderboard"
-            >
-              <Trophy className="w-4 h-4" />
-              {progress.sessionsToday >= settings.dailyGoalSessions && (
-                <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-emerald-400 rounded-full ring-2 ring-slate-950" />
-              )}
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setShowTutorial(true)}
-              className="p-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-white hover:border-slate-700 transition-colors"
-              title="How to Play"
-            >
-              <HelpCircle className="w-4 h-4" />
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setShowSettings(true)}
-              className="p-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-white hover:border-slate-700 transition-colors"
-              title="Game Settings"
-            >
-              <Sliders className="w-4 h-4" />
-            </button>
-
-          </div>
-        </div>
-      </header>
-
-      {/* Main App Arena */}
-      <main className="flex-1 max-w-4xl w-full mx-auto px-4 py-6 flex flex-col justify-center">
-        
-        {activeTab === 'train' ? (
-          <div className="flex flex-col items-center justify-center">
-            
-            {/* Round Telemetry Status Strip */}
-            <div className="w-full max-w-[420px] mb-6 flex items-center justify-between px-2">
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-mono text-slate-400">
-                  {isPlaying ? (
-                    <span>
-                      TRIAL <strong className="text-white font-bold">{currentTrialIdx + 1}</strong> / {sequence.length}
-                    </span>
-                  ) : (
-                    <span>SESSION READY</span>
-                  )}
+            {/* 1. Level Adjustment */}
+            <div className="p-3 rounded-2xl bg-white border-2 border-black shadow-[0_4px_0_#000000] flex flex-col gap-1.5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black text-black flex items-center gap-1.5">
+                  <Target className="w-4 h-4 text-orange-600" />
+                  N-Back Level
                 </span>
-                {isPaused && (
-                  <span className="text-[10px] font-mono uppercase bg-amber-950/80 text-amber-300 border border-amber-500/40 px-2 py-0.5 rounded">
-                    PAUSED
-                  </span>
-                )}
+                <span className="font-mono text-sm font-black text-orange-600">
+                  N={settings.nLevel} ({settings.nLevel} steps back)
+                </span>
               </div>
-
-              <div className="flex items-center gap-2 text-xs">
-                <span className="text-slate-400">Target:</span>
-                <span className="font-mono text-teal-400 font-bold bg-slate-900 border border-slate-800 px-2 py-0.5 rounded">
-                  Match {settings.nLevel} Steps Ago
-                </span>
+              <div className="grid grid-cols-7 gap-1">
+                {[1, 2, 3, 4, 5, 6, 7].map((lvl) => (
+                  <button
+                    key={lvl}
+                    type="button"
+                    onClick={() => updateNLevel(lvl)}
+                    className={`py-2 rounded-xl text-xs font-mono font-black transition-all cursor-pointer ${
+                      settings.nLevel === lvl
+                        ? 'bg-orange-500 border-2 border-black text-white shadow-sm scale-105'
+                        : 'bg-zinc-50 hover:bg-zinc-100 border border-zinc-300 text-black'
+                    }`}
+                  >
+                    N={lvl}
+                  </button>
+                ))}
               </div>
             </div>
 
-            {/* 3x3 Medical Positive Stimulus Grid */}
-            <MedicalGrid
-              activePosition={activePosition}
-              isStimulusActive={isStimulusActive}
-              currentSound={currentSound}
-              isPlayingAudio={isPlayingAudio}
-              immediateVisualResult={immediateVisualResult}
-              immediateAudioResult={immediateAudioResult}
-            />
+            {/* 2. Speed Adjustment */}
+            <div className="p-3 rounded-2xl bg-white border-2 border-black shadow-[0_4px_0_#000000] flex flex-col gap-1.5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black text-black flex items-center gap-1.5">
+                  <Zap className="w-4 h-4 text-orange-600" />
+                  Speed Interval
+                </span>
+                <span className="font-mono text-xs font-bold text-zinc-700">
+                  {(settings.trialDurationMs / 1000).toFixed(1)}s / step
+                </span>
+              </div>
+              <div className="grid grid-cols-4 gap-1.5">
+                {[
+                  { label: 'Blitz (1.6s)', ms: 1600 },
+                  { label: 'Pro (2.0s)', ms: 2000 },
+                  { label: 'Standard (2.4s)', ms: 2400 },
+                  { label: 'Relaxed (3.0s)', ms: 3000 },
+                ].map((opt) => (
+                  <button
+                    key={opt.ms}
+                    type="button"
+                    onClick={() => updateSpeed(opt.ms)}
+                    className={`py-2 px-1 rounded-xl text-xs font-bold transition-all text-center truncate cursor-pointer ${
+                      settings.trialDurationMs === opt.ms
+                        ? 'bg-orange-500 border-2 border-black text-white shadow-sm'
+                        : 'bg-zinc-50 hover:bg-zinc-100 border border-zinc-300 text-black'
+                    }`}
+                  >
+                    {opt.label.split(' ')[0]}
+                  </button>
+                ))}
+              </div>
+            </div>
 
-            {/* Response Controls (Visual Match [A] & Sound Match [L]) */}
-            {isPlaying ? (
+            {/* 3. Time Limit / Session Length Adjustment */}
+            <div className="p-3 rounded-2xl bg-white border-2 border-black shadow-[0_4px_0_#000000] flex flex-col gap-1.5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black text-black flex items-center gap-1.5">
+                  <Clock className="w-4 h-4 text-orange-600" />
+                  Time Limit / Trials
+                </span>
+                <span className="font-mono text-xs font-bold text-zinc-700">
+                  {settings.trialsPerRound} trials (~{estimatedSeconds}s)
+                </span>
+              </div>
+              <div className="grid grid-cols-4 gap-1.5">
+                {[15, 20, 25, 30].map((count) => {
+                  const estSec = Math.round((count * settings.trialDurationMs) / 1000);
+                  return (
+                    <button
+                      key={count}
+                      type="button"
+                      onClick={() => updateTrials(count)}
+                      className={`py-2 px-1 rounded-xl text-xs font-mono font-bold transition-all text-center cursor-pointer ${
+                        settings.trialsPerRound === count
+                          ? 'bg-orange-500 border-2 border-black text-white shadow-sm'
+                          : 'bg-zinc-50 hover:bg-zinc-100 border border-zinc-300 text-black'
+                      }`}
+                    >
+                      {count} ({estSec}s)
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Big Start / Play Button */}
+            <div className="w-full pt-1 pb-1">
+              <button
+                type="button"
+                onClick={() => startPlaySession()}
+                className="w-full h-16 sm:h-18 rounded-2xl bg-orange-500 hover:bg-orange-600 border-2 border-black text-white font-black text-base sm:text-lg tracking-wider shadow-[0_5px_0_#000000] active:translate-y-1 active:shadow-none transition-all flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <Play className="w-6 h-6 fill-white" />
+                <span>PLAY DUAL N-BACK</span>
+              </button>
+
+              <div className="flex items-center justify-between text-xs font-mono font-bold text-zinc-600 px-2 mt-2">
+                <span>EST: ~{estimatedSeconds}s</span>
+                <span className="flex items-center gap-1 text-orange-600">
+                  <Flame className="w-3.5 h-3.5" />
+                  {progress.currentStreakDays} DAY STREAK
+                </span>
+              </div>
+            </div>
+
+          </div>
+        )}
+
+        {currentScreen === 'playing' && (
+          /* ================= GAMEPLAY SCREEN ================= */
+          <div className="h-full w-full max-w-md mx-auto px-3 py-1 flex flex-col justify-between overflow-hidden">
+            
+            {/* 3x3 Grid Matrix: FILLS ENTIRE space between upper bar and lower buttons */}
+            <div className="flex-1 min-h-0 w-full flex items-center justify-center p-1 sm:p-2 overflow-hidden">
+              <MedicalGrid
+                activePosition={activePosition}
+                isStimulusActive={isStimulusActive}
+                currentSound={currentSound}
+                isPlayingAudio={isPlayingAudio}
+                immediateVisualResult={immediateVisualResult}
+                immediateAudioResult={immediateAudioResult}
+              />
+            </div>
+
+            {/* Bottom Dual Action Controls: POSITION [A] & SOUND [L] (NO retry/pause buttons here) */}
+            <div className="w-full shrink-0 pb-1 pt-0.5">
               <GameControls
-                isPlaying={isPlaying}
+                isPlaying={true}
                 isPaused={isPaused}
                 onVisualPress={handleVisualPress}
                 onAudioPress={handleAudioPress}
-                onTogglePause={togglePause}
-                onRestart={() => startRound()}
                 visualPressedThisTrial={visualPressed}
                 audioPressedThisTrial={audioPressed}
                 trialProgressPercent={trialProgressPercent}
                 immediateVisualResult={immediateVisualResult}
                 immediateAudioResult={immediateAudioResult}
                 showImmediateFeedback={settings.immediateFeedback}
-                disabled={false}
+                disabled={isPaused}
               />
-            ) : (
-              /* Idle / Start State */
-              <div className="w-full max-w-[420px] mx-auto mt-12 flex flex-col gap-3">
-                <button
-                  type="button"
-                  onClick={() => startRound()}
-                  className="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-teal-500 via-cyan-500 to-teal-400 hover:from-teal-400 hover:to-cyan-300 text-slate-950 font-extrabold text-base tracking-wide shadow-xl shadow-teal-500/25 transition-all flex items-center justify-center gap-2.5 select-none active:scale-[0.98]"
-                >
-                  <Play className="w-5 h-5 fill-slate-950" />
-                  <span>Start Training Session (N={settings.nLevel})</span>
-                </button>
-
-                <div className="flex items-center justify-between px-2 text-xs text-slate-400">
-                  <div className="flex items-center gap-1.5">
-                    <Target className="w-3.5 h-3.5 text-teal-400" />
-                    <span>{settings.trialsPerRound} trials per round</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <Flame className="w-3.5 h-3.5 text-orange-400" />
-                    <span>{progress.sessionsToday}/{settings.dailyGoalSessions} daily goal</span>
-                  </div>
-                </div>
-              </div>
-            )}
+            </div>
 
           </div>
-        ) : (
-          /* Stats & History View */
-          <StatsView
-            progress={progress}
-            onStartTraining={() => {
-              setActiveTab('train');
-              startRound();
-            }}
-            onResetHistory={handleResetHistory}
-          />
+        )}
+
+        {currentScreen === 'stats' && (
+          /* ================= STATS VIEW ================= */
+          <div className="flex-1 min-h-0 w-full overflow-y-auto px-4 py-2">
+            <StatsView
+              progress={progress}
+              onStartTraining={() => {
+                startPlaySession();
+              }}
+              onResetHistory={handleResetHistory}
+            />
+          </div>
         )}
 
       </main>
 
-      {/* Clinical Footer */}
-      <footer className="w-full border-t border-slate-900 bg-slate-950/80 py-3 px-4 text-center text-xs text-slate-500">
-        <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
-          <div className="flex items-center gap-2 text-[11px]">
-            <span>Auditory Stimuli:</span>
-            <span className="font-mono text-slate-400">TB · CML · AIDS · MI · Angina · Typhoid · Dengue · Mumps · Rabies</span>
-          </div>
+      {/* ================= MODALS & OVERLAYS ================= */}
 
-          <div className="flex items-center gap-3 text-[11px]">
-            <button
-              type="button"
-              onClick={() => setShowTutorial(true)}
-              className="text-slate-400 hover:text-white transition-colors"
-            >
-              How it works
-            </button>
-            <span aria-hidden="true">·</span>
-            <button
-              type="button"
-              onClick={() => setShowGlossary(true)}
-              className="text-slate-400 hover:text-cyan-300 transition-colors"
-            >
-              Condition Glossary
-            </button>
-            <span aria-hidden="true">·</span>
-            <button
-              type="button"
-              onClick={() => setShowGoalsLeaderboard(true)}
-              className="text-slate-400 hover:text-amber-300 transition-colors"
-            >
-              Leaderboard
-            </button>
-          </div>
-        </div>
-      </footer>
+      {/* Pause Modal (Opened via the single Pause button) */}
+      {isPaused && currentScreen === 'playing' && (
+        <PauseModal
+          currentTrial={currentTrialIdx + 1}
+          totalTrials={sequence.length}
+          nLevel={settings.nLevel}
+          onContinue={handleResumeGame}
+          onNewGame={handleNewGame}
+          onHelp={() => setShowTutorial(true)}
+        />
+      )}
 
-      {/* Modals */}
+      {/* Round Summary Modal */}
       {lastSessionStats && (
         <RoundSummaryModal
           stats={lastSessionStats}
           trials={sequence}
-          onNextRound={() => startRound(lastSessionStats.nextNLevel)}
+          onNextRound={() => startPlaySession(lastSessionStats.nextNLevel)}
           onOpenGlossary={() => setShowGlossary(true)}
           onClose={() => setLastSessionStats(null)}
         />
       )}
 
+      {/* Tutorial / Help Modal */}
       {showTutorial && (
         <TutorialModal
           onClose={() => setShowTutorial(false)}
@@ -650,6 +780,7 @@ export default function App() {
         />
       )}
 
+      {/* Medical Condition Glossary */}
       {showGlossary && (
         <GlossaryModal
           onClose={() => setShowGlossary(false)}
@@ -658,6 +789,7 @@ export default function App() {
         />
       )}
 
+      {/* Goals & Leaderboard */}
       {showGoalsLeaderboard && (
         <LeaderboardGoalsModal
           progress={progress}
@@ -668,6 +800,7 @@ export default function App() {
         />
       )}
 
+      {/* Settings Modal */}
       {showSettings && (
         <SettingsModal
           settings={settings}

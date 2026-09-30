@@ -19,10 +19,10 @@ function getAudioContext(): AudioContext | null {
 
 // Medical pronunciation mappings for crisp speech synthesis
 export const PRONUNCIATION_MAP: Record<MedicalWord, string> = {
-  tb: 'T. B.',
-  cml: 'C. M. L.',
+  stroke: 'Stroke',
+  asthma: 'Asthma',
   aids: 'AIDS',
-  mi: 'M. I.',
+  syphilis: 'Syphilis',
   angina: 'Angina',
   typhoid: 'Typhoid',
   dengue: 'Dengue',
@@ -32,10 +32,10 @@ export const PRONUNCIATION_MAP: Record<MedicalWord, string> = {
 
 // Fallback audio tone frequencies (Hz) for procedural audio in case speech is disabled/unavailable
 const WORD_TONES: Record<MedicalWord, number[]> = {
-  tb: [330, 440],
-  cml: [294, 370, 440],
+  stroke: [330, 440],
+  asthma: [294, 370, 440],
   aids: [523, 659],
-  mi: [392, 587],
+  syphilis: [392, 587],
   angina: [349, 440, 523],
   typhoid: [261, 329, 392],
   dengue: [440, 554],

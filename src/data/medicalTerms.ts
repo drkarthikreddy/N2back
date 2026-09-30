@@ -1,10 +1,10 @@
 import { MedicalWord, MedicalWordInfo } from '../types/game';
 
 export const MEDICAL_WORDS: MedicalWord[] = [
-  'tb',
-  'cml',
+  'stroke',
+  'asthma',
   'aids',
-  'mi',
+  'syphilis',
   'angina',
   'typhoid',
   'dengue',
@@ -13,23 +13,23 @@ export const MEDICAL_WORDS: MedicalWord[] = [
 ];
 
 export const MEDICAL_DICTIONARY: Record<MedicalWord, MedicalWordInfo> = {
-  tb: {
-    id: 'tb',
-    display: 'TB',
-    fullName: 'Tuberculosis',
-    category: 'Infectious',
-    phonetic: 'T B',
-    overview: 'Mycobacterium tuberculosis infection primarily affecting the pulmonary parenchyma, characterized by caseating granulomas and acid-fast bacilli.',
-    symptoms: ['Chronic cough with hemoptysis', 'Night sweats', 'Weight loss / cachexia', 'Low-grade fever']
+  stroke: {
+    id: 'stroke',
+    display: 'Stroke',
+    fullName: 'Cerebrovascular Accident (Stroke)',
+    category: 'Neurology / Vascular',
+    phonetic: 'Stroke',
+    overview: 'Acute focal neurological deficit caused by cerebrovascular occlusion (ischemic) or intracranial hemorrhage.',
+    symptoms: ['Facial droop', 'Unilateral arm weakness', 'Dysarthria / slurred speech', 'Acute visual disturbance']
   },
-  cml: {
-    id: 'cml',
-    display: 'CML',
-    fullName: 'Chronic Myelogenous Leukemia',
-    category: 'Oncology / Hematology',
-    phonetic: 'C M L',
-    overview: 'Myeloproliferative neoplasm driven by the BCR-ABL1 fusion gene resulting from the reciprocal t(9;22) Philadelphia chromosome translocation.',
-    symptoms: ['Massive splenomegaly', 'Fatigue and anemia', 'Hyperleukocytosis', 'Early satiety']
+  asthma: {
+    id: 'asthma',
+    display: 'Asthma',
+    fullName: 'Bronchial Asthma',
+    category: 'Pulmonology',
+    phonetic: 'Asthma',
+    overview: 'Chronic inflammatory airway disease characterized by bronchial hyperresponsiveness and reversible airflow limitation.',
+    symptoms: ['Expiratory wheezing', 'Shortness of breath', 'Nocturnal cough', 'Chest tightness']
   },
   aids: {
     id: 'aids',
@@ -40,14 +40,14 @@ export const MEDICAL_DICTIONARY: Record<MedicalWord, MedicalWordInfo> = {
     overview: 'Advanced stage of Human Immunodeficiency Virus (HIV) infection marked by profound CD4+ T-cell depletion (<200 cells/μL) and opportunistic infections.',
     symptoms: ['Pneumocystis jirovecii pneumonia', 'Kaposi sarcoma', 'Severe candidiasis', 'Persistent lymphadenopathy']
   },
-  mi: {
-    id: 'mi',
-    display: 'MI',
-    fullName: 'Myocardial Infarction',
-    category: 'Cardiology',
-    phonetic: 'M I',
-    overview: 'Acute ischemic necrosis of myocardial tissue usually caused by rupture of an atherosclerotic coronary plaque and acute thrombotic occlusion.',
-    symptoms: ['Crushing substernal chest pressure', 'Radiation to left jaw / arm', 'Diaphoresis', 'Troponin elevation']
+  syphilis: {
+    id: 'syphilis',
+    display: 'Syphilis',
+    fullName: 'Syphilis (Treponema pallidum)',
+    category: 'Infectious',
+    phonetic: 'Syphilis',
+    overview: 'Multi-stage systemic infection caused by Treponema pallidum, beginning with an indurated painless chancre followed by disseminated secondary and tertiary sequelae.',
+    symptoms: ['Painless genital chancre', 'Copper-colored rash on palms/soles', 'Condylomata lata', 'Argyll Robertson pupils']
   },
   angina: {
     id: 'angina',

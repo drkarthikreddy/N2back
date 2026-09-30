@@ -6,8 +6,8 @@ const PROGRESS_KEY = 'med_nback_progress_v1';
 export const DEFAULT_SETTINGS: GameSettings = {
   nLevel: 2,
   trialsPerRound: 20,
-  stimulusDurationMs: 650,
-  trialDurationMs: 2500,
+  stimulusDurationMs: 450,
+  trialDurationMs: 2000,
   autoAdaptive: true,
   immediateFeedback: true,
   audioVolume: 0.9,

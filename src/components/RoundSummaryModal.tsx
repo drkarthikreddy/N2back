@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Award, TrendingUp, TrendingDown, Minus, Share2, Check, ArrowRight, BookOpen, Eye, Headphones, RefreshCw } from 'lucide-react';
+import { TrendingUp, TrendingDown, Minus, Share2, Check, ArrowRight, BookOpen, Eye, Headphones } from 'lucide-react';
 import { SessionStats, Trial } from '../types/game';
 import { MEDICAL_DICTIONARY } from '../data/medicalTerms';
 
@@ -21,169 +21,122 @@ export const RoundSummaryModal: React.FC<RoundSummaryModalProps> = ({
   const [selectedTrialIdx, setSelectedTrialIdx] = useState<number | null>(null);
 
   const handleShare = () => {
-    const text = `🧠 MedNBack Brain Training\n🏆 N-Back Level: N=${stats.nLevel}\n👁️ Visual Accuracy: ${stats.visualAccuracy}%\n👂 Medical Sound Accuracy: ${stats.audioAccuracy}%\n🎯 Combined Working Memory Score: ${stats.combinedAccuracy}%\nOutcome: ${
+    const text = `MedNBack Brain Training\nLevel: N=${stats.nLevel}\nVisual: ${stats.visualAccuracy}%\nAudio: ${stats.audioAccuracy}%\nScore: ${stats.combinedAccuracy}%\nOutcome: ${
       stats.levelChange === 'promoted'
-        ? 'Level Up! 🚀'
+        ? 'Promoted to N=' + stats.nextNLevel
         : stats.levelChange === 'demoted'
-        ? 'Stepped Down'
-        : 'Level Maintained'
-    }\nTrain your medical cognitive focus on MedNBack!`;
+        ? 'Adjusted to N=' + stats.nextNLevel
+        : 'Maintained N=' + stats.nLevel
+    }`;
 
     navigator.clipboard.writeText(text).then(() => {
       setCopiedShare(true);
-      setTimeout(() => setCopiedShare(false), 2500);
+      setTimeout(() => setCopiedShare(false), 2000);
     });
   };
 
   const selectedTrial = selectedTrialIdx !== null ? trials[selectedTrialIdx] : null;
-  const targetTrial = (selectedTrial && selectedTrial.index >= stats.nLevel)
-    ? trials[selectedTrial.index - stats.nLevel]
-    : null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="relative w-full max-w-xl max-h-[92vh] overflow-y-auto bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl p-6 flex flex-col gap-6 text-slate-100">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
+      <div className="relative w-full max-w-md max-h-[92vh] overflow-y-auto bg-white border-2 border-black rounded-2xl shadow-[0_16px_48px_rgba(0,0,0,0.2)] p-5 flex flex-col gap-4 text-black">
         
-        {/* Outcome Header Banner */}
+        {/* Outcome Header */}
         <div className="text-center flex flex-col items-center">
-          <div className="mb-3 inline-flex p-3 rounded-full bg-slate-800 border border-slate-700">
-            {stats.levelChange === 'promoted' && (
-              <TrendingUp className="w-8 h-8 text-emerald-400 animate-bounce" />
-            )}
-            {stats.levelChange === 'demoted' && (
-              <TrendingDown className="w-8 h-8 text-amber-400" />
-            )}
-            {stats.levelChange === 'maintained' && (
-              <Minus className="w-8 h-8 text-cyan-400" />
-            )}
+          <div className="mb-2 p-3 rounded-full bg-orange-100 border-2 border-orange-500 text-orange-600">
+            {stats.levelChange === 'promoted' && <TrendingUp className="w-7 h-7 stroke-[3]" />}
+            {stats.levelChange === 'demoted' && <TrendingDown className="w-7 h-7 stroke-[3]" />}
+            {stats.levelChange === 'maintained' && <Minus className="w-7 h-7 stroke-[3]" />}
           </div>
 
-          <span className="text-xs uppercase font-mono tracking-wider text-slate-400">
-            Session Completed · Level N={stats.nLevel}
+          <span className="text-xs font-mono font-bold uppercase tracking-wider text-zinc-600">
+            Level N={stats.nLevel} Complete
           </span>
 
-          <h2 className="text-2xl font-extrabold tracking-tight mt-1">
-            {stats.levelChange === 'promoted' && (
-              <span className="bg-gradient-to-r from-emerald-400 to-teal-300 bg-clip-text text-transparent">
-                Promoted to N={stats.nextNLevel}!
-              </span>
-            )}
-            {stats.levelChange === 'demoted' && (
-              <span className="text-amber-400">
-                Adjusting to N={stats.nextNLevel}
-              </span>
-            )}
-            {stats.levelChange === 'maintained' && (
-              <span className="text-slate-100">
-                Solid Consistency! Maintained N={stats.nLevel}
-              </span>
-            )}
+          <h2 className="text-2xl font-black tracking-tight text-black mt-0.5">
+            {stats.levelChange === 'promoted' && `Promoted to N=${stats.nextNLevel}!`}
+            {stats.levelChange === 'demoted' && `Adjusting to N=${stats.nextNLevel}`}
+            {stats.levelChange === 'maintained' && `Maintained N=${stats.nLevel}`}
           </h2>
-
-          <p className="text-xs text-slate-400 mt-1 max-w-md">
-            {stats.levelChange === 'promoted'
-              ? 'Outstanding performance (>80% accuracy). Your working memory threshold is expanding!'
-              : stats.levelChange === 'demoted'
-              ? 'Accuracy fell below 50%. Stepping back allows working memory consolidation.'
-              : 'Keep practicing to break the 80% threshold across both modalities!'}
-          </p>
         </div>
 
-        {/* Dual Accuracy Gauges */}
-        <div className="grid grid-cols-2 gap-4">
+        {/* Dual Accuracy Cards */}
+        <div className="grid grid-cols-2 gap-3">
           {/* Visual Channel Card */}
-          <div className="p-4 rounded-xl bg-slate-950/60 border border-slate-800 flex flex-col gap-2">
-            <div className="flex items-center justify-between text-xs text-cyan-400 font-semibold">
+          <div className="p-3.5 rounded-xl bg-zinc-50 border-2 border-zinc-200 flex flex-col gap-1.5">
+            <div className="flex items-center justify-between text-xs font-bold text-zinc-900">
               <div className="flex items-center gap-1.5">
-                <Eye className="w-4 h-4" />
-                <span>VISUAL POSITION</span>
+                <Eye className="w-4 h-4 text-orange-600 stroke-[2.5]" />
+                <span>POSITION</span>
               </div>
-              <span className="font-mono text-base font-bold text-white">
+              <span className="font-mono text-base font-black text-black">
                 {stats.visualAccuracy}%
               </span>
             </div>
 
-            <div className="w-full bg-slate-800 rounded-full h-2 overflow-hidden">
+            <div className="w-full bg-zinc-200 rounded-full h-2 overflow-hidden">
               <div
-                className="bg-cyan-400 h-full rounded-full transition-all duration-500"
+                className="bg-orange-500 h-full rounded-full"
                 style={{ width: `${stats.visualAccuracy}%` }}
               />
             </div>
 
-            <div className="grid grid-cols-3 gap-1 text-[11px] text-slate-400 pt-1 font-mono">
-              <div>
-                <span className="text-slate-500 block text-[9px] uppercase">Hits</span>
-                <span className="text-emerald-400 font-bold">{stats.visualHits}</span>
-              </div>
-              <div>
-                <span className="text-slate-500 block text-[9px] uppercase">Misses</span>
-                <span className="text-rose-400 font-bold">{stats.visualMisses}</span>
-              </div>
-              <div>
-                <span className="text-slate-500 block text-[9px] uppercase">False</span>
-                <span className="text-amber-400 font-bold">{stats.visualFalseAlarms}</span>
-              </div>
+            <div className="flex justify-between text-[11px] text-zinc-600 font-mono pt-1">
+              <span>Hits: <strong>{stats.visualHits}</strong></span>
+              <span>Miss: <strong>{stats.visualMisses}</strong></span>
+              <span>FA: <strong className={stats.visualFalseAlarms > 0 ? 'text-rose-600' : 'text-zinc-800'}>{stats.visualFalseAlarms}</strong></span>
             </div>
           </div>
 
           {/* Audio Channel Card */}
-          <div className="p-4 rounded-xl bg-slate-950/60 border border-slate-800 flex flex-col gap-2">
-            <div className="flex items-center justify-between text-xs text-indigo-400 font-semibold">
+          <div className="p-3.5 rounded-xl bg-zinc-50 border-2 border-zinc-200 flex flex-col gap-1.5">
+            <div className="flex items-center justify-between text-xs font-bold text-zinc-900">
               <div className="flex items-center gap-1.5">
-                <Headphones className="w-4 h-4" />
-                <span>MEDICAL SOUND</span>
+                <Headphones className="w-4 h-4 text-orange-600 stroke-[2.5]" />
+                <span>SOUND</span>
               </div>
-              <span className="font-mono text-base font-bold text-white">
+              <span className="font-mono text-base font-black text-black">
                 {stats.audioAccuracy}%
               </span>
             </div>
 
-            <div className="w-full bg-slate-800 rounded-full h-2 overflow-hidden">
+            <div className="w-full bg-zinc-200 rounded-full h-2 overflow-hidden">
               <div
-                className="bg-indigo-400 h-full rounded-full transition-all duration-500"
+                className="bg-orange-500 h-full rounded-full"
                 style={{ width: `${stats.audioAccuracy}%` }}
               />
             </div>
 
-            <div className="grid grid-cols-3 gap-1 text-[11px] text-slate-400 pt-1 font-mono">
-              <div>
-                <span className="text-slate-500 block text-[9px] uppercase">Hits</span>
-                <span className="text-emerald-400 font-bold">{stats.audioHits}</span>
-              </div>
-              <div>
-                <span className="text-slate-500 block text-[9px] uppercase">Misses</span>
-                <span className="text-rose-400 font-bold">{stats.audioMisses}</span>
-              </div>
-              <div>
-                <span className="text-slate-500 block text-[9px] uppercase">False</span>
-                <span className="text-amber-400 font-bold">{stats.audioFalseAlarms}</span>
-              </div>
+            <div className="flex justify-between text-[11px] text-zinc-600 font-mono pt-1">
+              <span>Hits: <strong>{stats.audioHits}</strong></span>
+              <span>Miss: <strong>{stats.audioMisses}</strong></span>
+              <span>FA: <strong className={stats.audioFalseAlarms > 0 ? 'text-rose-600' : 'text-zinc-800'}>{stats.audioFalseAlarms}</strong></span>
             </div>
           </div>
         </div>
 
-        {/* Interactive Trial-by-Trial Replay Tape */}
-        <div className="flex flex-col gap-2">
-          <div className="flex items-center justify-between text-xs text-slate-400">
-            <span className="font-semibold text-slate-300">Trial History Tape</span>
-            <span className="text-[11px] text-slate-500">Click trial for audit</span>
+        {/* Trial Ribbon Tape */}
+        <div className="flex flex-col gap-1.5">
+          <div className="flex items-center justify-between text-xs font-bold text-zinc-700">
+            <span>Round Timeline</span>
+            <span className="text-[11px] font-normal text-zinc-500">Tap turn to audit</span>
           </div>
 
-          <div className="flex items-center gap-1 overflow-x-auto p-2 bg-slate-950/70 border border-slate-800 rounded-xl scrollbar-thin">
+          <div className="flex items-center gap-1 overflow-x-auto p-2 bg-zinc-100 border border-zinc-200 rounded-xl">
             {trials.map((t, idx) => {
               const isBuffer = idx < stats.nLevel;
               const isSelected = selectedTrialIdx === idx;
 
-              let statusColor = 'bg-slate-800 text-slate-400';
+              let badgeBg = 'bg-white border-zinc-300 text-zinc-700';
               if (!isBuffer) {
                 const visOk = t.visualResult === 'hit' || t.visualResult === 'correct_rejection';
                 const audOk = t.audioResult === 'hit' || t.audioResult === 'correct_rejection';
                 if (visOk && audOk) {
-                  statusColor = 'bg-emerald-950/80 text-emerald-400 border-emerald-500/50';
+                  badgeBg = 'bg-emerald-50 border-emerald-500 text-emerald-800';
                 } else if (!visOk && !audOk) {
-                  statusColor = 'bg-rose-950/80 text-rose-400 border-rose-500/50';
+                  badgeBg = 'bg-rose-50 border-rose-400 text-rose-800';
                 } else {
-                  statusColor = 'bg-amber-950/80 text-amber-400 border-amber-500/50';
+                  badgeBg = 'bg-orange-50 border-orange-400 text-orange-800';
                 }
               }
 
@@ -192,12 +145,12 @@ export const RoundSummaryModal: React.FC<RoundSummaryModalProps> = ({
                   key={idx}
                   type="button"
                   onClick={() => setSelectedTrialIdx(idx)}
-                  className={`flex-shrink-0 w-8 h-9 rounded-lg border flex flex-col items-center justify-center transition-all ${statusColor} ${
-                    isSelected ? 'ring-2 ring-cyan-400 scale-105' : 'hover:opacity-80'
+                  className={`flex-shrink-0 w-8 h-8 rounded-lg border flex flex-col items-center justify-center transition-all cursor-pointer ${badgeBg} ${
+                    isSelected ? 'ring-2 ring-black scale-105' : ''
                   }`}
                 >
-                  <span className="text-[9px] font-mono leading-none">{idx + 1}</span>
-                  <span className="text-[8px] font-bold uppercase leading-none mt-1">
+                  <span className="text-[9px] font-mono font-bold leading-none">{idx + 1}</span>
+                  <span className="text-[8px] font-bold uppercase leading-none mt-0.5">
                     {MEDICAL_DICTIONARY[t.sound]?.display.slice(0, 3)}
                   </span>
                 </button>
@@ -205,98 +158,50 @@ export const RoundSummaryModal: React.FC<RoundSummaryModalProps> = ({
             })}
           </div>
 
-          {/* Audit Detail Panel for selected trial */}
           {selectedTrial && (
-            <div className="p-3 bg-slate-950/90 border border-slate-800 rounded-xl text-xs flex flex-col gap-2 animate-in fade-in">
-              <div className="flex items-center justify-between text-slate-400 font-mono text-[11px]">
+            <div className="p-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-xs flex flex-col gap-1 font-mono">
+              <div className="flex items-center justify-between font-bold">
                 <span>Trial #{selectedTrial.index + 1}</span>
-                {selectedTrial.index >= stats.nLevel ? (
-                  <span>Comparing with Trial #{selectedTrial.index + 1 - stats.nLevel}</span>
-                ) : (
-                  <span className="text-slate-500">Baseline Buffer Trial</span>
-                )}
+                <span>Sound: {MEDICAL_DICTIONARY[selectedTrial.sound]?.display}</span>
               </div>
-
-              <div className="grid grid-cols-2 gap-3 pt-1">
-                {/* Visual Position Comparison */}
-                <div className="flex items-center gap-2">
-                  <div className="w-10 h-10 grid grid-cols-3 grid-rows-3 gap-0.5 p-1 bg-slate-900 border border-slate-800 rounded">
-                    {Array.from({ length: 9 }).map((_, p) => (
-                      <div
-                        key={p}
-                        className={`rounded-[1px] ${
-                          selectedTrial.position === p
-                            ? 'bg-cyan-400'
-                            : targetTrial?.position === p
-                            ? 'bg-slate-600'
-                            : 'bg-slate-800'
-                        }`}
-                      />
-                    ))}
-                  </div>
-                  <div>
-                    <span className="text-slate-400 block text-[10px]">Position Match?</span>
-                    <span className={`font-semibold ${selectedTrial.isVisualMatch ? 'text-teal-400' : 'text-slate-400'}`}>
-                      {selectedTrial.isVisualMatch ? 'Yes (Match)' : 'No match'}
-                    </span>
-                    <span className="text-[10px] text-slate-500 block">
-                      You pressed: {selectedTrial.userVisualResponse ? 'Yes' : 'No'} ({selectedTrial.visualResult})
-                    </span>
-                  </div>
-                </div>
-
-                {/* Sound Comparison */}
-                <div>
-                  <span className="text-slate-400 block text-[10px]">Sound Word</span>
-                  <span className="font-semibold text-indigo-300">
-                    {MEDICAL_DICTIONARY[selectedTrial.sound]?.display}
-                  </span>
-                  <span className="text-[10px] text-slate-500 block">
-                    Match? {selectedTrial.isAudioMatch ? 'Yes' : 'No'} · Result: {selectedTrial.audioResult}
-                  </span>
-                </div>
+              <div className="flex items-center justify-between text-[11px] text-zinc-700">
+                <span>Position Match: {selectedTrial.isVisualMatch ? 'YES' : selectedTrial.isVisualLure ? 'NO (LURE TRAP)' : 'NO'}</span>
+                <span>Sound Match: {selectedTrial.isAudioMatch ? 'YES' : selectedTrial.isAudioLure ? 'NO (LURE TRAP)' : 'NO'}</span>
               </div>
             </div>
           )}
         </div>
 
-        {/* Action Buttons */}
-        <div className="flex flex-col sm:flex-row items-center gap-3 pt-2">
+        {/* Primary Action Button - Big Orange Button */}
+        <div className="flex flex-col gap-2 pt-1">
           <button
             type="button"
             onClick={onNextRound}
-            className="w-full sm:flex-1 py-3 px-5 rounded-xl bg-gradient-to-r from-teal-500 to-cyan-500 hover:from-teal-400 hover:to-cyan-400 text-slate-950 font-bold text-sm tracking-wide shadow-lg shadow-teal-500/20 transition-all flex items-center justify-center gap-2 select-none active:scale-[0.98]"
+            className="w-full py-3.5 px-4 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-black text-sm tracking-wide shadow-[0_4px_0_#9a3412] active:translate-y-0.5 active:shadow-none transition-all flex items-center justify-center gap-2 cursor-pointer"
           >
             <span>Next Round (N={stats.nextNLevel})</span>
-            <ArrowRight className="w-4 h-4" />
+            <ArrowRight className="w-4 h-4 stroke-[3]" />
           </button>
 
-          <button
-            type="button"
-            onClick={handleShare}
-            className="w-full sm:w-auto py-3 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-sm font-semibold transition-all flex items-center justify-center gap-2 select-none"
-          >
-            {copiedShare ? (
-              <>
-                <Check className="w-4 h-4 text-emerald-400" />
-                <span className="text-emerald-400">Copied!</span>
-              </>
-            ) : (
-              <>
-                <Share2 className="w-4 h-4" />
-                <span>Share Results</span>
-              </>
-            )}
-          </button>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={handleShare}
+              className="py-2.5 px-3 rounded-xl bg-white hover:bg-zinc-50 border-2 border-black text-black font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+            >
+              {copiedShare ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Share2 className="w-3.5 h-3.5" />}
+              <span>{copiedShare ? 'Copied' : 'Share'}</span>
+            </button>
 
-          <button
-            type="button"
-            onClick={onOpenGlossary}
-            className="w-full sm:w-auto py-3 px-4 rounded-xl bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700/80 text-slate-300 text-sm font-semibold transition-all flex items-center justify-center gap-2"
-          >
-            <BookOpen className="w-4 h-4 text-cyan-400" />
-            <span>Glossary</span>
-          </button>
+            <button
+              type="button"
+              onClick={onOpenGlossary}
+              className="py-2.5 px-3 rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-900 font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+            >
+              <BookOpen className="w-3.5 h-3.5" />
+              <span>Glossary</span>
+            </button>
+          </div>
         </div>
 
       </div>

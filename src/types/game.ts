@@ -1,8 +1,8 @@
 export type MedicalWord = 
-  | 'tb'
-  | 'cml'
+  | 'stroke'
+  | 'asthma'
   | 'aids'
-  | 'mi'
+  | 'syphilis'
   | 'angina'
   | 'typhoid'
   | 'dengue'
@@ -13,7 +13,7 @@ export interface MedicalWordInfo {
   id: MedicalWord;
   display: string;
   fullName: string;
-  category: 'Infectious' | 'Cardiology' | 'Oncology / Hematology';
+  category: string;
   phonetic: string;
   overview: string;
   symptoms: string[];
@@ -27,6 +27,8 @@ export interface Trial {
   sound: MedicalWord;
   isVisualMatch: boolean;
   isAudioMatch: boolean;
+  isVisualLure?: boolean; // N-1 or N+1 distractor trap
+  isAudioLure?: boolean;  // N-1 or N+1 distractor trap
   userVisualResponse: boolean | null;
   userAudioResponse: boolean | null;
   visualResult: ChannelResult | null;

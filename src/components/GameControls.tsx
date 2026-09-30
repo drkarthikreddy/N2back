@@ -1,16 +1,14 @@
 import React from 'react';
-import { Eye, Headphones, Play, Pause, RotateCcw } from 'lucide-react';
+import { Eye, Headphones } from 'lucide-react';
 
 interface GameControlsProps {
   isPlaying: boolean;
   isPaused: boolean;
   onVisualPress: () => void;
   onAudioPress: () => void;
-  onTogglePause: () => void;
-  onRestart: () => void;
   visualPressedThisTrial: boolean;
   audioPressedThisTrial: boolean;
-  trialProgressPercent: number; // 0 to 100 for current trial time countdown
+  trialProgressPercent: number;
   immediateVisualResult: 'hit' | 'miss' | 'false_alarm' | null;
   immediateAudioResult: 'hit' | 'miss' | 'false_alarm' | null;
   showImmediateFeedback: boolean;
@@ -22,8 +20,6 @@ export const GameControls: React.FC<GameControlsProps> = ({
   isPaused,
   onVisualPress,
   onAudioPress,
-  onTogglePause,
-  onRestart,
   visualPressedThisTrial,
   audioPressedThisTrial,
   trialProgressPercent,
@@ -33,140 +29,75 @@ export const GameControls: React.FC<GameControlsProps> = ({
   disabled,
 }) => {
   return (
-    <div className="w-full max-w-[420px] mx-auto mt-12 flex flex-col gap-4">
-      {/* Trial Countdown Progress Bar */}
-      <div className="w-full bg-slate-800/80 rounded-full h-1.5 overflow-hidden">
+    <div className="w-full max-w-[350px] sm:max-w-[380px] mx-auto flex flex-col gap-2 select-none">
+      
+      {/* Crisp Progress Bar */}
+      <div className="w-full bg-zinc-200 rounded-full h-1.5 overflow-hidden">
         <div
-          className="bg-gradient-to-r from-teal-400 to-cyan-500 h-full transition-all duration-75 ease-linear"
+          className="bg-orange-500 h-full transition-all duration-75 ease-linear rounded-full"
           style={{ width: `${Math.min(100, Math.max(0, trialProgressPercent))}%` }}
         />
       </div>
 
-      {/* Main Dual N-Back Response Buttons */}
-      <div className="grid grid-cols-2 gap-4">
-        {/* Visual / Position Match Button */}
+      {/* Dual Response Buttons - Clean, Large & Mobile Optimized */}
+      <div className="grid grid-cols-2 gap-3">
+        {/* Visual Match Button */}
         <button
           type="button"
           onClick={onVisualPress}
           disabled={disabled || !isPlaying || isPaused}
-          className={`group relative flex flex-col items-center justify-center p-4 rounded-xl border text-left transition-all select-none active:scale-[0.98] ${
+          className={`relative h-20 sm:h-22 rounded-2xl border-2 flex flex-col items-center justify-center transition-all active:scale-95 touch-manipulation cursor-pointer ${
             visualPressedThisTrial
-              ? 'bg-cyan-950/80 border-cyan-400/80 text-cyan-200 ring-2 ring-cyan-500/40'
-              : 'bg-slate-900 hover:bg-slate-800/90 border-slate-700/80 text-slate-100 hover:border-slate-600'
+              ? 'bg-orange-500 border-black text-white shadow-inner scale-[0.98]'
+              : 'bg-white hover:bg-zinc-50 border-black text-black shadow-[0_4px_0_#000000]'
           } ${
             showImmediateFeedback && immediateVisualResult === 'hit'
-              ? 'ring-2 ring-emerald-500 bg-emerald-950/40 border-emerald-400'
+              ? 'ring-4 ring-emerald-500'
               : ''
           } ${
             showImmediateFeedback && immediateVisualResult === 'false_alarm'
-              ? 'ring-2 ring-rose-500 bg-rose-950/40 border-rose-400'
+              ? 'ring-4 ring-rose-500'
               : ''
-          } disabled:opacity-50 disabled:cursor-not-allowed`}
+          } disabled:opacity-40 disabled:cursor-not-allowed`}
         >
-          <div className="flex items-center justify-between w-full mb-1">
-            <div className="flex items-center gap-1.5 text-xs font-semibold tracking-wide text-cyan-400">
-              <Eye className="w-4 h-4" />
-              <span>POSITION</span>
-            </div>
-            <kbd className="px-2 py-0.5 text-[11px] font-mono font-bold bg-slate-800 border border-slate-600 text-slate-300 rounded shadow-inner">
-              A
-            </kbd>
+          <div className="flex items-center gap-1.5 font-black text-sm tracking-wide">
+            <Eye className="w-4 h-4 stroke-[2.5]" />
+            <span>POSITION</span>
           </div>
-
-          <div className="w-full text-sm font-semibold tracking-tight text-white flex items-center justify-between">
-            <span>Visual Match</span>
-            {visualPressedThisTrial && (
-              <span className="text-[10px] font-mono text-cyan-400 font-normal">
-                REGISTERED
-              </span>
-            )}
-          </div>
-
-          <div className="w-full text-[11px] text-slate-400 mt-1">
-            Match N steps back
-          </div>
+          <span className={`text-[11px] font-mono mt-0.5 ${visualPressedThisTrial ? 'text-white font-bold' : 'text-zinc-600'}`}>
+            KEY [A]
+          </span>
         </button>
 
-        {/* Audio / Sound Match Button */}
+        {/* Audio Match Button */}
         <button
           type="button"
           onClick={onAudioPress}
           disabled={disabled || !isPlaying || isPaused}
-          className={`group relative flex flex-col items-center justify-center p-4 rounded-xl border text-left transition-all select-none active:scale-[0.98] ${
+          className={`relative h-20 sm:h-22 rounded-2xl border-2 flex flex-col items-center justify-center transition-all active:scale-95 touch-manipulation cursor-pointer ${
             audioPressedThisTrial
-              ? 'bg-indigo-950/80 border-indigo-400/80 text-indigo-200 ring-2 ring-indigo-500/40'
-              : 'bg-slate-900 hover:bg-slate-800/90 border-slate-700/80 text-slate-100 hover:border-slate-600'
+              ? 'bg-orange-500 border-black text-white shadow-inner scale-[0.98]'
+              : 'bg-white hover:bg-zinc-50 border-black text-black shadow-[0_4px_0_#000000]'
           } ${
             showImmediateFeedback && immediateAudioResult === 'hit'
-              ? 'ring-2 ring-emerald-500 bg-emerald-950/40 border-emerald-400'
+              ? 'ring-4 ring-emerald-500'
               : ''
           } ${
             showImmediateFeedback && immediateAudioResult === 'false_alarm'
-              ? 'ring-2 ring-rose-500 bg-rose-950/40 border-rose-400'
+              ? 'ring-4 ring-rose-500'
               : ''
-          } disabled:opacity-50 disabled:cursor-not-allowed`}
+          } disabled:opacity-40 disabled:cursor-not-allowed`}
         >
-          <div className="flex items-center justify-between w-full mb-1">
-            <div className="flex items-center gap-1.5 text-xs font-semibold tracking-wide text-indigo-400">
-              <Headphones className="w-4 h-4" />
-              <span>SOUND</span>
-            </div>
-            <kbd className="px-2 py-0.5 text-[11px] font-mono font-bold bg-slate-800 border border-slate-600 text-slate-300 rounded shadow-inner">
-              L
-            </kbd>
+          <div className="flex items-center gap-1.5 font-black text-sm tracking-wide">
+            <Headphones className="w-4 h-4 stroke-[2.5]" />
+            <span>SOUND</span>
           </div>
-
-          <div className="w-full text-sm font-semibold tracking-tight text-white flex items-center justify-between">
-            <span>Audio Match</span>
-            {audioPressedThisTrial && (
-              <span className="text-[10px] font-mono text-indigo-400 font-normal">
-                REGISTERED
-              </span>
-            )}
-          </div>
-
-          <div className="w-full text-[11px] text-slate-400 mt-1">
-            Match N steps back
-          </div>
+          <span className={`text-[11px] font-mono mt-0.5 ${audioPressedThisTrial ? 'text-white font-bold' : 'text-zinc-600'}`}>
+            KEY [L]
+          </span>
         </button>
       </div>
 
-      {/* Auxiliary Controls (Pause, Restart, Keyboard reminder) */}
-      <div className="flex items-center justify-between pt-1 px-1">
-        <div className="text-[11px] text-slate-500 flex items-center gap-1.5">
-          <span>Shortcuts:</span>
-          <span className="text-slate-400 font-mono">[A]</span>
-          <span>Position</span>
-          <span aria-hidden="true">·</span>
-          <span className="text-slate-400 font-mono">[L]</span>
-          <span>Sound</span>
-          <span aria-hidden="true">·</span>
-          <span className="text-slate-400 font-mono">[Space]</span>
-          <span>Pause</span>
-        </div>
-
-        <div className="flex items-center gap-2">
-          {isPlaying && (
-            <button
-              type="button"
-              onClick={onTogglePause}
-              className="p-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors"
-              title={isPaused ? 'Resume (Space)' : 'Pause (Space)'}
-            >
-              {isPaused ? <Play className="w-4 h-4" /> : <Pause className="w-4 h-4" />}
-            </button>
-          )}
-
-          <button
-            type="button"
-            onClick={onRestart}
-            className="p-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors"
-            title="Restart round"
-          >
-            <RotateCcw className="w-4 h-4" />
-          </button>
-        </div>
-      </div>
     </div>
   );
 };
