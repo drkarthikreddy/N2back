@@ -1,0 +1,6 @@
+{
+  "name": "MedNBack - Medical Dual N-Back Brain Training",
+  "description": "Scientifically designed Dual N-Back cognitive training game utilizing medical auditory stimuli (TB, CML, AIDS, MI, Angina, Typhoid, Dengue, Mumps, Rabies) and 3x3 spatial grid positioning to improve working memory, clinical focus, and fluid intelligence.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
